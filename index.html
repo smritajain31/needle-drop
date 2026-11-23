@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Needle Drop · sashiko by hand</title>
+<meta name="description" content="Slow, hand-tracked sashiko embroidery in the browser. Every stitch takes four deliberate moves: come up, lay the thread, go down, pull through.">
+<meta property="og:title" content="Needle Drop">
+<meta property="og:description" content="Sashiko embroidery with your own two hands, one stitch at a time.">
+<meta name="theme-color" content="#120e0b">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;1,400;1,500&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#efe6d6; --muted:#a6987f; --line:rgba(239,230,214,.14); --line-strong:rgba(239,230,214,.38);
+    --panel:rgba(24,19,15,.66); --serif:'Cormorant Garamond', Georgia, serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:#120e0b;color:var(--ink);font-family:'DM Sans',system-ui,sans-serif;overflow:hidden;-webkit-font-smoothing:antialiased}
+  button{font:inherit;color:inherit}
+  #stage{position:fixed;inset:0;width:100%;height:100%;touch-action:none;cursor:none}
+  #fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:6}
+
+  .brand{position:fixed;top:28px;left:34px;z-index:3;pointer-events:none}
+  .brand h1{font-family:var(--serif);font-style:italic;font-weight:500;font-size:46px;line-height:1;letter-spacing:.005em}
+  .brand p{color:var(--muted);font-size:12px;letter-spacing:.16em;text-transform:uppercase;margin-top:10px}
+
+  .stats{position:fixed;top:30px;right:34px;z-index:3;display:flex;gap:26px;text-align:right;pointer-events:none}
+  .stats b{display:block;font-family:var(--serif);font-size:32px;font-weight:500;line-height:1}
+  .stats span{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+
+  .beats{position:fixed;left:34px;top:50%;transform:translateY(-50%);list-style:none;z-index:3;width:230px;display:flex;flex-direction:column;gap:6px;pointer-events:none}
+  .beats li{padding:11px 14px;border-radius:14px;border:1px solid transparent;color:var(--muted);transition:background .25s,border-color .25s,color .25s}
+  .beats li .n{font-family:var(--serif);font-style:italic;font-size:20px;margin-right:6px}
+  .beats li b{font-weight:500;font-size:15px;color:inherit}
+  .beats li small{display:block;font-size:12.5px;line-height:1.4;margin-top:3px;opacity:.85}
+  .beats li.on{background:rgba(239,230,214,.08);border-color:var(--line);color:var(--ink)}
+
+  .side{position:fixed;right:34px;top:50%;transform:translateY(-50%);z-index:3;width:216px;display:flex;flex-direction:column;gap:26px}
+  .side h2{font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);font-weight:500;margin-bottom:10px}
+  .patterns{display:flex;flex-direction:column;gap:6px}
+  .pat{display:flex;align-items:center;gap:12px;padding:7px 10px 7px 7px;border-radius:16px;border:1px solid transparent;background:none;cursor:pointer;text-align:left;transition:background .2s,border-color .2s}
+  .pat img{width:46px;height:46px;border-radius:50%;flex:none}
+  .pat b{display:block;font-weight:500;font-size:14.5px}
+  .pat span{font-size:12px;color:var(--muted)}
+  .pat:hover{background:rgba(239,230,214,.05)}
+  .pat[aria-pressed="true"]{border-color:var(--line-strong);background:rgba(239,230,214,.06)}
+  .threads{display:flex;gap:8px}
+  .thr{width:44px;height:44px;border-radius:50%;border:1.5px solid transparent;padding:4px;background:none;cursor:pointer;transition:border-color .2s}
+  .thr i{display:block;width:100%;height:100%;border-radius:50%;background:var(--c);box-shadow:inset 0 -4px 7px rgba(0,0,0,.28),inset 0 2px 3px rgba(255,255,255,.25)}
+  .thr:hover{border-color:var(--line)}
+  .thr[aria-pressed="true"]{border-color:var(--ink)}
+  .thread-name{font-size:12.5px;color:var(--muted);margin-top:9px}
+  .thread-name b{color:var(--ink);font-weight:500}
+
+  .bottom{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:3;display:flex;flex-direction:column;align-items:center;gap:12px;width:min(660px,94vw)}
+  .hint{font-size:16.5px;text-align:center;min-height:24px;text-shadow:0 1px 10px rgba(0,0,0,.7);pointer-events:none}
+  .hint small{display:block;color:var(--muted);font-size:13px;margin-top:4px;min-height:17px}
+  .controls{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+  .btn{font-size:14px;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:10px 18px;cursor:pointer;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);transition:border-color .2s,background .2s}
+  .btn:hover{border-color:var(--line-strong)}
+  .btn.primary{background:var(--ink);color:#1a140f;border-color:var(--ink)}
+  .btn.primary:hover{background:#fff8ec}
+  .btn.warn{border-color:rgba(214,120,90,.6)}
+
+  .cam{position:fixed;left:34px;bottom:24px;z-index:3;width:208px;display:none}
+  .cam.on{display:block}
+  .cam .view{position:relative;width:100%;aspect-ratio:4/3;border-radius:14px;overflow:hidden;border:1px solid var(--line);background:#000}
+  .cam video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1);opacity:.5;display:block}
+  .cam canvas{position:absolute;inset:0;width:100%;height:100%}
+  .chips{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+  .chip{font-size:11.5px;padding:4px 9px;border-radius:999px;border:1px solid var(--line);color:var(--muted);transition:all .2s}
+  .chip.ok{color:var(--ink);border-color:var(--line-strong)}
+  .cam p{font-size:11.5px;color:var(--muted);margin-top:7px}
+
+  .toast{position:fixed;top:24px;left:50%;transform:translate(-50%,-12px);z-index:30;background:rgba(30,24,19,.95);border:1px solid var(--line);border-radius:999px;padding:10px 18px;font-size:14px;transition:transform .35s ease,opacity .35s ease,visibility .35s;max-width:92vw;text-align:center;opacity:0;visibility:hidden;pointer-events:none}
+  .toast.show{transform:translate(-50%,0);opacity:1;visibility:visible}
+
+  .overlay{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;background:rgba(10,8,6,.74);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);padding:22px;overflow:auto}
+  .overlay[hidden]{display:none}
+  .card{max-width:600px;width:100%;background:rgba(29,23,18,.94);border:1px solid var(--line);border-radius:26px;padding:42px 42px 34px}
+  .card .kicker{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+  .card h2{font-family:var(--serif);font-style:italic;font-weight:500;font-size:58px;line-height:1;margin-top:10px}
+  .card .lede{font-size:16px;line-height:1.6;color:#d8ccb8;margin-top:16px}
+  .steps{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:26px 0 28px}
+  .steps div{border:1px solid var(--line);border-radius:16px;padding:13px 12px}
+  .steps i{font-family:var(--serif);font-size:26px;display:block;line-height:1}
+  .steps b{display:block;font-weight:500;font-size:14px;margin-top:8px}
+  .steps span{display:block;font-size:12px;color:var(--muted);line-height:1.4;margin-top:4px}
+  .card .row{display:flex;gap:10px;flex-wrap:wrap}
+  .privacy{font-size:12.5px;color:var(--muted);margin-top:18px;line-height:1.5}
+  .finish-stats{font-family:var(--serif);font-size:24px;margin-top:14px;color:#e6dac6}
+
+  @media (max-width: 900px){
+    .brand{top:16px;left:18px}
+    .brand h1{font-size:32px}
+    .brand p{display:none}
+    .stats{top:20px;right:18px;gap:14px}
+    .stats b{font-size:22px}
+    .stats span{font-size:9px}
+    .beats{top:74px;left:50%;transform:translateX(-50%);flex-direction:row;width:auto;gap:4px}
+    .beats li{padding:6px 10px;white-space:nowrap}
+    .beats li b{display:none;font-size:13px}
+    .beats li.on b{display:inline}
+    .beats li .n{font-size:16px;margin-right:2px}
+    .beats li small{display:none}
+    .side{top:auto;bottom:118px;right:50%;transform:translateX(50%);width:auto;flex-direction:row;gap:16px;align-items:center}
+    .side h2,.thread-name,.pat div{display:none}
+    .patterns{flex-direction:row;gap:2px}
+    .pat{padding:3px}
+    .pat img{width:38px;height:38px}
+    .thr{width:36px;height:36px;padding:3px}
+    .threads{gap:4px}
+    .bottom{bottom:14px;gap:8px}
+    .hint{font-size:14px}
+    .hint small{font-size:12px}
+    .controls{flex-wrap:nowrap;gap:6px}
+    .btn{padding:7px 10px;font-size:12px;white-space:nowrap}
+    .toast{top:118px}
+    .cam{left:auto;right:14px;bottom:auto;top:132px;width:96px}
+    .cam .chips,.cam p{display:none}
+    .card{padding:30px 24px 26px}
+    .card h2{font-size:44px}
+    .steps{grid-template-columns:repeat(2,1fr)}
+  }
+</style>
+</head>
+<body>
+<canvas id="stage" aria-label="Embroidery hoop. Hold the needle and stitch along the pattern."></canvas>
+<canvas id="fx" aria-hidden="true"></canvas>
+
+<header class="brand">
+  <h1>Needle Drop</h1>
+  <p>Sashiko by hand · one stitch at a time</p>
+</header>
+
+<div class="stats" aria-live="polite">
+  <div><b id="stStitches">0</b><span>stitches</span></div>
+  <div><b id="stMinutes">0</b><span>minutes</span></div>
+  <div><b id="stPct">0%</b><span>done</span></div>
+</div>
+
+<ol class="beats" id="beats">
+  <li data-beat="0"><span class="n">1</span><b>Come up</b><small>Hold the needle on the glowing dot.</small></li>
+  <li data-beat="1"><span class="n">2</span><b>Lay the thread</b><small>Draw it along the line to the ring.</small></li>
+  <li data-beat="2"><span class="n">3</span><b>Go down</b><small>Hold still to push through the cloth.</small></li>
+  <li data-beat="3"><span class="n">4</span><b>Pull through</b><small>Pull away until the stitch lies snug.</small></li>
+</ol>
+
+<aside class="side">
+  <section>
+    <h2>Pattern</h2>
+    <div class="patterns" id="patterns"></div>
+  </section>
+  <section>
+    <h2>Thread</h2>
+    <div class="threads" id="threads"></div>
+    <div class="thread-name" id="threadName"></div>
+  </section>
+</aside>
+
+<div class="cam" id="cam">
+  <div class="view"><video id="video" playsinline muted></video><canvas id="camfx"></canvas></div>
+  <div class="chips"><span class="chip" id="chipNeedle">Needle hand</span><span class="chip" id="chipHoop">Hoop hand</span></div>
+  <p>Video stays on this device.</p>
+</div>
+
+<div class="bottom">
+  <div class="hint" id="hint">&nbsp;<small id="hint2"></small></div>
+  <div class="controls">
+    <button class="btn" id="btnCam" data-dwell>Use camera</button>
+    <button class="btn" id="btnUndo" data-dwell>Unpick</button>
+    <button class="btn" id="btnSave" data-dwell>Save hoop</button>
+    <button class="btn" id="btnSound" data-dwell aria-pressed="true">Sound on</button>
+    <button class="btn" id="btnClear">Clear</button>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+
+<div class="overlay" id="intro">
+  <div class="card">
+    <div class="kicker">An old craft, by hand</div>
+    <h2>Needle Drop</h2>
+    <p class="lede">Sashiko is a Japanese running stitch, sewn slowly and on purpose. Here your hands do the work. Waving doesn't stitch. Each stitch takes four deliberate moves, just like the real thing.</p>
+    <div class="steps">
+      <div><i>1</i><b>Come up</b><span>Pinch to hold the needle, rest it on the glowing dot</span></div>
+      <div><i>2</i><b>Lay</b><span>Draw the thread along the line</span></div>
+      <div><i>3</i><b>Go down</b><span>Hold still on the ring</span></div>
+      <div><i>4</i><b>Pull</b><span>Pull away until it's snug</span></div>
+    </div>
+    <div class="row">
+      <button class="btn primary" id="startCam">Begin with camera</button>
+      <button class="btn" id="startMouse">Try with mouse or touch</button>
+    </div>
+    <p class="privacy">Your camera feed is read on this device to find your hands. Nothing is recorded or uploaded. Your other open hand steadies the hoop.</p>
+  </div>
+</div>
+
+<div class="overlay" id="finish" hidden>
+  <div class="card">
+    <div class="kicker" id="finishKicker">Finished</div>
+    <h2>Well sewn.</h2>
+    <p class="finish-stats" id="finishStats"></p>
+    <p class="lede">Every stitch here took four deliberate moves from your hands. Save it, or start another pattern.</p>
+    <div class="row" style="margin-top:24px">
+      <button class="btn primary" id="finishSave">Save hoop</button>
+      <button class="btn" id="finishNext">Next pattern</button>
+      <button class="btn" id="finishClose">Keep looking</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+// ===================================================================
+//  Needle Drop: hand-tracked sashiko embroidery
+// ===================================================================
+const TAU = Math.PI * 2;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+const $ = (id) => document.getElementById(id);
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;}}
+function hexRgb(h){const n=parseInt(h.slice(1),16);return[(n>>16)&255,(n>>8)&255,n&255];}
+function mix(h1,h2,t){const a=hexRgb(h1),b=hexRgb(h2);return `rgb(${Math.round(lerp(a[0],b[0],t))},${Math.round(lerp(a[1],b[1],t))},${Math.round(lerp(a[2],b[2],t))})`;}
+function rgba(h,a){const c=hexRgb(h);return `rgba(${c[0]},${c[1]},${c[2]},${a})`;}
+
+// ------------------------------------------------------------------
+//  Tuning (all distances in hoop units: hoop radius = 1)
+// ------------------------------------------------------------------
+const CLIP = 0.86;          // pattern area inside the hoop
+const STITCH = 0.085;       // length of a stitch on top of the cloth
+const GAP = 0.045;          // length hidden underneath
+const HIT = 0.075;          // how close the needle must be to a dot
+const STILL = 0.55;         // max speed (units/s) that counts as "holding still"
+const T_UP = 0.42;          // seconds to come up
+const T_DOWN = 0.48;        // seconds to go down
+const PULL = 0.26;          // how far to pull to set a stitch
+const KEEP_WOBBLE = 0.35;   // how much of the hand's imperfection is kept
+const MAX_WOBBLE = 0.022;
+const THREAD_W = 0.0135;
+
+// ------------------------------------------------------------------
+//  Patterns
+// ------------------------------------------------------------------
+const inClip = p => Math.hypot(p.x, p.y) <= CLIP;
+function clipRuns(pts){
+  const runs=[]; let cur=[];
+  for(const p of pts){ if(inClip(p)) cur.push(p); else { if(cur.length>1) runs.push(cur); cur=[]; } }
+  if(cur.length>1) runs.push(cur);
+  return runs;
+}
+function clipRunsClosed(pts){
+  const k = pts.findIndex(p => !inClip(p));
+  if(k < 0) return [pts];
+  return clipRuns(pts.slice(k).concat(pts.slice(1, k+1)));
+}
+function yamagata(){ // mountain zigzags: each slope is its own run so stitches never cut a corner
+  const runs=[]; let row=0; const half=0.17, amp=0.085;
+  for(let y=-0.74; y<=0.78; y+=0.205, row++){
+    const corners=[];
+    for(let k=0, x=-1.02; x<=1.02+1e-9; k++, x+=half) corners.push({x, y:y+(k%2?-amp:amp)});
+    if(row%2) corners.reverse();
+    for(let i=0;i<corners.length-1;i++){
+      const a=corners[i], b=corners[i+1], seg=[];
+      for(let t=0;t<=40;t++) seg.push({x:lerp(a.x,b.x,t/40), y:lerp(a.y,b.y,t/40)});
+      runs.push(...clipRuns(seg));
+    }
+  }
+  return runs;
+}
+function seigaiha(){ // overlapping waves
+  const R=0.3, units=[]; let k=0;
+  for(let cy=-1.05; cy<=1.3; cy+=R/2, k++){
+    const off=(k%2)?R:0;
+    for(let cx=-1.5+off; cx<=1.5; cx+=2*R) units.push({cx,cy,row:k});
+  }
+  const runs=[];
+  for(const u of units){
+    if(Math.hypot(u.cx,u.cy) > CLIP+R) continue;
+    for(const rf of [0.92,0.62,0.32]){
+      const rr=R*rf, N=Math.ceil(Math.PI*rr/0.005); let cur=[];
+      for(let i=0;i<=N;i++){
+        const a=Math.PI+Math.PI*i/N, p={x:u.cx+rr*Math.cos(a), y:u.cy+rr*Math.sin(a)};
+        const hidden = units.some(v => v.row>u.row && v.row<=u.row+2 && p.y<=v.cy+1e-6 && Math.hypot(p.x-v.cx,p.y-v.cy) < R*0.985);
+        if(inClip(p) && !hidden) cur.push(p); else { if(cur.length>1) runs.push(cur); cur=[]; }
+      }
+      if(cur.length>1) runs.push(cur);
+    }
+  }
+  return runs;
+}
+function shippo(){ // seven treasures: interlocking circles
+  const r=0.24, s=r*Math.SQRT2, runs=[];
+  for(let j=-4;j<=4;j++){
+    const cols=[]; for(let i=-4;i<=4;i++) cols.push(i*s);
+    if(j%2) cols.reverse();
+    for(const cx of cols){
+      const cy=j*s; if(Math.hypot(cx,cy) > CLIP+r) continue;
+      const N=Math.ceil(TAU*r/0.005), pts=[];
+      for(let i=0;i<=N;i++){ const a=-Math.PI/2+TAU*i/N; pts.push({x:cx+r*Math.cos(a), y:cy+r*Math.sin(a)}); }
+      runs.push(...clipRunsClosed(pts));
+    }
+  }
+  return runs;
+}
+function runsToSlots(runs){
+  const slots=[], step=STITCH+GAP;
+  for(const run of runs){
+    const cum=[0]; for(let i=1;i<run.length;i++) cum.push(cum[i-1]+dist(run[i-1],run[i]));
+    const total=cum[cum.length-1], n=Math.floor((total+GAP)/step);
+    if(n<1) continue;
+    const off=(total-(n*STITCH+(n-1)*GAP))/2; let j=0;
+    const at=s=>{ while(j<run.length-2 && cum[j+1]<s) j++; const seg=(cum[j+1]-cum[j])||1, t=clamp((s-cum[j])/seg,0,1);
+      return {x:lerp(run[j].x,run[j+1].x,t), y:lerp(run[j].y,run[j+1].y,t)}; };
+    for(let k=0;k<n;k++){
+      const s0=off+k*step, s1=s0+STITCH;
+      const a=at(s0), pts=[a]; let i=j+1;
+      while(i<run.length && cum[i]<s1){ if(cum[i]>s0) pts.push(run[i]); i++; }
+      const b=at(s1); pts.push(b);
+      slots.push({a,b,pts});
+    }
+  }
+  return slots;
+}
+const PATTERNS=[
+  {id:'yamagata', name:'Yamagata', en:'Mountains', level:'Beginner', build:yamagata},
+  {id:'seigaiha', name:'Seigaiha', en:'Ocean waves', level:'Intermediate', build:seigaiha},
+  {id:'shippo', name:'Shippō', en:'Seven treasures', level:'Advanced', build:shippo},
+];
+for(const p of PATTERNS){ p.runs=p.build(); p.slots=runsToSlots(p.runs); }
+
+const THREADS=[
+  {name:'Shiro', en:'white', hex:'#f2ece0'},
+  {name:'Kinari', en:'unbleached', hex:'#e2cd9c'},
+  {name:'Akane', en:'madder red', hex:'#cf5a3f'},
+  {name:'Kincha', en:'gold', hex:'#d9a441'},
+];
+
+// ------------------------------------------------------------------
+//  State
+// ------------------------------------------------------------------
+let pattern=PATTERNS[0], slots=pattern.slots, stitches=[], idx=0, activeMs=0;
+let threadIdx=0;
+let state='emerge';            // emerge | lay | pull | done
+let dwell=0, pullT=0, pullLastD=0, pullFrom=null, emergeRaw=null, downRaw=null;
+let speed=Infinity, prevP=null;
+let started=false;
+
+function storeKey(id){ return 'needle-drop:v1:'+id; }
+function saveProgress(){
+  try{ localStorage.setItem(storeKey(pattern.id), JSON.stringify({stitches, ms:Math.round(activeMs), thread:threadIdx})); }catch(e){}
+}
+function loadProgress(p){
+  try{ const d=JSON.parse(localStorage.getItem(storeKey(p.id))||'null'); if(d && Array.isArray(d.stitches)) return d; }catch(e){}
+  return {stitches:[], ms:0};
+}
+function selectPattern(p, {quiet=false}={}){
+  if(started) saveProgress();
+  pattern=p; slots=p.slots;
+  const d=loadProgress(p);
+  stitches=d.stitches.filter(s=>s && s.i<slots.length); activeMs=d.ms||0;
+  idx=stitches.length? stitches[stitches.length-1].i+1 : 0;
+  resetCycle(); state = idx>=slots.length ? 'done' : 'emerge';
+  buildCloth();
+  document.querySelectorAll('.pat').forEach(b=>b.setAttribute('aria-pressed', b.dataset.id===p.id));
+  if(!quiet) toast(`${p.name} · ${p.en}. ${slots.length} stitches.`);
+}
+function resetCycle(){ dwell=0; pullT=0; pullLastD=0; pullFrom=null; emergeRaw=null; downRaw=null; }
+
+// ------------------------------------------------------------------
+//  Canvas + geometry
+// ------------------------------------------------------------------
+const stage=$('stage'), sctx=stage.getContext('2d');
+const fx=$('fx'), fctx=fx.getContext('2d');
+let W=0,H=0,DPR=1, geom={cx:0,cy:0,r:200}, bgGrad=null;
+const sway={x:0,y:0,rot:0};
+
+function resize(){
+  DPR=Math.min(2, window.devicePixelRatio||1); W=innerWidth; H=innerHeight;
+  for(const c of [stage,fx]){ c.width=Math.round(W*DPR); c.height=Math.round(H*DPR); }
+  if(W>900){
+    const r=Math.max(150, Math.min((H-240)/2, (W-580)/2));
+    geom={cx:W/2, cy:(104 + H-140)/2, r};
+  } else {
+    const r=Math.max(110, Math.min(W*0.44, (H-330)/2));
+    geom={cx:W/2, cy:(124 + H-190)/2, r};
+  }
+  bgGrad=sctx.createRadialGradient(geom.cx,geom.cy,geom.r*0.4,geom.cx,geom.cy,Math.max(W,H)*0.8);
+  bgGrad.addColorStop(0,'#2a2019'); bgGrad.addColorStop(0.55,'#18120e'); bgGrad.addColorStop(1,'#0c0907');
+  buildCloth();
+}
+
+const toScreen=u=>{ const c=Math.cos(sway.rot), s=Math.sin(sway.rot), x=u.x*geom.r, y=u.y*geom.r;
+  return {x:geom.cx+sway.x+x*c-y*s, y:geom.cy+sway.y+x*s+y*c}; };
+const toCloth=p=>{ const dx=p.x-geom.cx-sway.x, dy=p.y-geom.cy-sway.y, c=Math.cos(-sway.rot), s=Math.sin(-sway.rot);
+  return {x:(dx*c-dy*s)/geom.r, y:(dx*s+dy*c)/geom.r}; };
+
+// ---------- fabric texture
+const fabricCache=new Map();
+function fabricFor(px){
+  if(fabricCache.has(px)) return fabricCache.get(px);
+  const c=document.createElement('canvas'); c.width=c.height=px; const g=c.getContext('2d');
+  const img=g.createImageData(px,px), d=img.data, rnd=mulberry32(11);
+  const rowN=new Float32Array(px), colN=new Float32Array(px);
+  for(let i=0;i<px;i++){ rowN[i]=(rnd()-0.5)*9 + (rnd()<0.04?(rnd()-0.5)*16:0); colN[i]=(rnd()-0.5)*7; }
+  const cell=Math.max(2, Math.round(px/700)+1);
+  for(let y=0;y<px;y++) for(let x=0;x<px;x++){
+    const i=(y*px+x)*4, w=(((x/cell|0)+(y/cell|0))&1)?4.5:-4.5, n=(rnd()-0.5)*12, v=rowN[y]+colN[x]+w+n;
+    d[i]=31+v*0.55; d[i+1]=45+v*0.7; d[i+2]=80+v; d[i+3]=255;
+  }
+  g.putImageData(img,0,0);
+  const gr=g.createRadialGradient(px*0.42,px*0.38,px*0.05,px/2,px/2,px*0.6);
+  gr.addColorStop(0,'rgba(120,150,210,0.16)'); gr.addColorStop(1,'rgba(0,0,10,0.32)');
+  g.fillStyle=gr; g.fillRect(0,0,px,px);
+  if(fabricCache.size>4) fabricCache.clear();
+  fabricCache.set(px,c); return c;
+}
+
+// ---------- thread drawing
+function strokePath(g,pts){ g.beginPath(); g.moveTo(pts[0].x,pts[0].y); for(let i=1;i<pts.length;i++) g.lineTo(pts[i].x,pts[i].y); g.stroke(); }
+function drawThread(g, pts, hex, w, alpha=1, holes=true){
+  g.save(); g.lineCap='round'; g.lineJoin='round'; g.globalAlpha=alpha;
+  if(holes){ g.fillStyle='rgba(6,10,22,0.6)'; for(const p of [pts[0],pts[pts.length-1]]){ g.beginPath(); g.arc(p.x,p.y,w*0.62,0,TAU); g.fill(); } }
+  g.strokeStyle='rgba(4,7,16,0.5)'; g.lineWidth=w*1.3; g.save(); g.translate(w*0.2,w*0.34); strokePath(g,pts); g.restore();
+  g.strokeStyle=hex; g.lineWidth=w; strokePath(g,pts);
+  g.globalAlpha=alpha*0.32; g.strokeStyle=mix(hex,'#000000',0.35); g.lineWidth=w*0.92; g.setLineDash([w*0.22,w*0.58]); strokePath(g,pts); g.setLineDash([]);
+  g.globalAlpha=alpha*0.75; g.strokeStyle=mix(hex,'#ffffff',0.6); g.lineWidth=w*0.3; g.save(); g.translate(-w*0.1,-w*0.2); strokePath(g,pts); g.restore();
+  g.restore();
+}
+function stitchPts(slot, oa, ob, r, sag=0){
+  const n=slot.pts.length, a=slot.a, b=slot.b, len=dist(a,b)||1, nx=-(b.y-a.y)/len, ny=(b.x-a.x)/len;
+  const sgn = ny>=0?1:-1; // sag toward screen-down
+  return slot.pts.map((p,k)=>{ const t=n>1?k/(n-1):0, s=Math.sin(Math.PI*t)*sag*sgn;
+    return {x:(p.x+lerp(oa.x,ob.x,t)+nx*s)*r, y:(p.y+lerp(oa.y,ob.y,t)+ny*s)*r}; });
+}
+
+// ---------- cloth (fabric + chalk lines + finished stitches), cached
+let cloth=null;
+function renderCloth(r, dpr, pat=pattern, list=stitches){
+  const px=Math.ceil(2*r*dpr), c=document.createElement('canvas'); c.width=c.height=px;
+  const g=c.getContext('2d');
+  const prep=()=>{ g.setTransform(dpr,0,0,dpr,r*dpr,r*dpr); g.beginPath(); g.arc(0,0,r*0.975,0,TAU); g.clip(); };
+  g.save(); prep();
+  g.drawImage(fabricFor(px), -r, -r, 2*r, 2*r);
+  g.lineCap='round'; g.lineJoin='round';
+  g.strokeStyle='rgba(222,234,255,0.2)'; g.lineWidth=Math.max(1, r*0.0034);
+  for(const run of pat.runs) strokePath(g, run.map(p=>({x:p.x*r,y:p.y*r})));
+  for(const s of list){ const sl=pat.slots[s.i]; if(sl) drawThread(g, stitchPts(sl,s.oa,s.ob,r), THREADS[s.c]?.hex||THREADS[0].hex, r*THREAD_W); }
+  g.restore();
+  return {canvas:c, g, r, dpr, prep};
+}
+function buildCloth(){ if(geom.r) cloth=renderCloth(geom.r, DPR); }
+function addStitchToCloth(s){
+  if(!cloth) return; const g=cloth.g; g.save(); cloth.prep();
+  drawThread(g, stitchPts(slots[s.i],s.oa,s.ob,cloth.r), THREADS[s.c].hex, cloth.r*THREAD_W); g.restore();
+}
+
+// ---------- hoop
+function drawHoop(g, r, clothCanvas){
+  g.save(); g.shadowColor='rgba(0,0,0,0.6)'; g.shadowBlur=r*0.14; g.shadowOffsetY=r*0.05;
+  g.fillStyle='#141c30'; g.beginPath(); g.arc(0,0,r*1.0,0,TAU); g.fill(); g.restore();
+  g.drawImage(clothCanvas, -r, -r, 2*r, 2*r);
+  const rw=r*0.058, rr=r*0.975+rw*0.42;
+  g.save();
+  g.strokeStyle='rgba(0,0,0,0.35)'; g.lineWidth=rw*0.5; g.beginPath(); g.arc(0,0,r*0.975-rw*0.05,0,TAU); g.stroke();
+  const wood=g.createLinearGradient(-r,-r,r,r); wood.addColorStop(0,'#dcb17c'); wood.addColorStop(0.45,'#c0905c'); wood.addColorStop(1,'#8a5c35');
+  g.strokeStyle=wood; g.lineWidth=rw; g.beginPath(); g.arc(0,0,rr,0,TAU); g.stroke();
+  g.lineWidth=Math.max(0.6,r*0.0016);
+  for(const [k,a] of [[-0.3,0.25],[-0.05,0.18],[0.22,0.22],[0.36,0.14]]){ g.strokeStyle=`rgba(96,58,26,${a})`; g.beginPath(); g.arc(0,0,rr+rw*k,0,TAU); g.stroke(); }
+  g.strokeStyle='rgba(255,232,196,0.4)'; g.lineWidth=Math.max(1,r*0.003); g.beginPath(); g.arc(0,0,rr-rw*0.46,Math.PI*1.05,Math.PI*1.95); g.stroke();
+  // brass clasp
+  g.translate(0,-(rr+rw*0.35));
+  const br=g.createLinearGradient(-r*0.06,0,r*0.06,0); br.addColorStop(0,'#8a6a2e'); br.addColorStop(0.5,'#e9cd85'); br.addColorStop(1,'#7a5a22');
+  g.fillStyle=br; g.beginPath(); g.roundRect(-r*0.045,-r*0.04,r*0.09,r*0.06,r*0.012); g.fill();
+  g.fillStyle='#d9bc72'; g.beginPath(); g.roundRect(-r*0.016,-r*0.085,r*0.032,r*0.05,r*0.008); g.fill();
+  g.strokeStyle='rgba(60,40,10,.6)'; g.lineWidth=1; for(let i=0;i<3;i++){ g.beginPath(); g.moveTo(-r*0.016,-r*0.075+i*r*0.014); g.lineTo(r*0.016,-r*0.075+i*r*0.014); g.stroke(); }
+  g.restore();
+}
+
+// ------------------------------------------------------------------
+//  Sound (synthesized, no files)
+// ------------------------------------------------------------------
+const sfx={ ctx:null, on:true, buf:null, wg:null,
+  init(){ if(this.ctx) { this.ctx.resume?.(); return; }
+    try{ const C=window.AudioContext||window.webkitAudioContext; const ctx=new C(); this.ctx=ctx;
+      const len=ctx.sampleRate, b=ctx.createBuffer(1,len,ctx.sampleRate), d=b.getChannelData(0); for(let i=0;i<len;i++) d[i]=Math.random()*2-1; this.buf=b;
+      const src=ctx.createBufferSource(); src.buffer=b; src.loop=true; const bp=ctx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=2800; bp.Q.value=0.7;
+      const g=ctx.createGain(); g.gain.value=0; src.connect(bp).connect(g).connect(ctx.destination); src.start(); this.wg=g;
+    }catch(e){ this.ctx=null; } },
+  pop(pitch=1){ const c=this.ctx; if(!c||!this.on) return; const t=c.currentTime;
+    const s=c.createBufferSource(); s.buffer=this.buf; const f=c.createBiquadFilter(); f.type='bandpass'; f.frequency.value=1500*pitch; f.Q.value=1.4;
+    const g=c.createGain(); g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.32,t+0.006); g.gain.exponentialRampToValueAtTime(0.0001,t+0.07);
+    s.connect(f).connect(g).connect(c.destination); s.start(t,Math.random()*0.5); s.stop(t+0.09);
+    const o=c.createOscillator(); o.frequency.setValueAtTime(220*pitch,t); o.frequency.exponentialRampToValueAtTime(90,t+0.06);
+    const og=c.createGain(); og.gain.setValueAtTime(0.0001,t); og.gain.exponentialRampToValueAtTime(0.12,t+0.005); og.gain.exponentialRampToValueAtTime(0.0001,t+0.08);
+    o.connect(og).connect(c.destination); o.start(t); o.stop(t+0.1); },
+  whisper(level){ const c=this.ctx; if(!c||!this.wg) return; this.wg.gain.setTargetAtTime(this.on?clamp(level,0,1)*0.09:0, c.currentTime, 0.05); },
+  tock(){ const c=this.ctx; if(!c||!this.on) return; const t=c.currentTime; const o=c.createOscillator(); o.type='sine';
+    o.frequency.setValueAtTime(660,t); o.frequency.exponentialRampToValueAtTime(440,t+0.12);
+    const g=c.createGain(); g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.07,t+0.008); g.gain.exponentialRampToValueAtTime(0.0001,t+0.25);
+    o.connect(g).connect(c.destination); o.start(t); o.stop(t+0.3); },
+  chime(){ const c=this.ctx; if(!c||!this.on) return; [523.25,659.25,783.99,1046.5].forEach((f,i)=>{ const t=c.currentTime+i*0.12, o=c.createOscillator(), g=c.createGain();
+    o.frequency.value=f; g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.06,t+0.01); g.gain.exponentialRampToValueAtTime(0.0001,t+1.2); o.connect(g).connect(c.destination); o.start(t); o.stop(t+1.3); }); }
+};
+
+// ------------------------------------------------------------------
+//  Input: mouse / touch
+// ------------------------------------------------------------------
+const mouse={x:0,y:0,down:false,active:false,lastMove:0};
+stage.addEventListener('pointerdown',e=>{ mouse.down=true; mouse.active=true; mouse.x=e.clientX; mouse.y=e.clientY; mouse.lastMove=performance.now(); try{stage.setPointerCapture(e.pointerId);}catch(_){} sfx.init(); });
+window.addEventListener('pointermove',e=>{ mouse.x=e.clientX; mouse.y=e.clientY; mouse.active=true; mouse.lastMove=performance.now(); });
+const up=()=>{ mouse.down=false; };
+stage.addEventListener('pointerup',up); stage.addEventListener('pointercancel',up);
+document.addEventListener('pointerleave',()=>{ if(!mouse.down) mouse.active=false; });
+
+// ------------------------------------------------------------------
+//  Input: hands (loaded only when the camera is turned on)
+// ------------------------------------------------------------------
+const CDN='https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14';
+const MODEL='https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task';
+const video=$('video'), camfx=$('camfx'), cctx=camfx.getContext('2d');
+let camOn=false, stream=null, landmarker=null, loading=false, lastVideoTime=-1;
+let hands=[]; const pinchState={};
+const handInput={needle:null,pinched:false,angle:-0.85,hoopHeld:false,label:null,smooth:null};
+const BONES=[[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17]];
+
+async function loadLandmarker(){
+  const v=await import(`${CDN}/vision_bundle.mjs`);
+  const files=await v.FilesetResolver.forVisionTasks(`${CDN}/wasm`);
+  const opts=d=>({baseOptions:{modelAssetPath:MODEL,delegate:d},runningMode:'VIDEO',numHands:2,minHandDetectionConfidence:0.6,minHandPresenceConfidence:0.5,minTrackingConfidence:0.5});
+  try{ return await v.HandLandmarker.createFromOptions(files,opts('GPU')); }
+  catch(e){ return await v.HandLandmarker.createFromOptions(files,opts('CPU')); }
+}
+async function startCamera(){
+  if(camOn||loading) return; loading=true; $('btnCam').textContent='Starting…';
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({video:{width:{ideal:640},height:{ideal:480},facingMode:'user'},audio:false});
+    video.srcObject=stream; await video.play();
+    camOn=true; $('cam').classList.add('on');
+    if(!landmarker){ toast('Warming up hand tracking…'); landmarker=await loadLandmarker(); toast('Ready. Pinch thumb and index finger to hold the needle.'); }
+  }catch(e){
+    console.warn(e); stopCamera();
+    toast('Camera unavailable. You can keep stitching with your mouse or finger.');
+  }
+  loading=false; $('btnCam').textContent=camOn?'Stop camera':'Use camera';
+}
+function stopCamera(){
+  camOn=false; if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
+  video.srcObject=null; hands=[]; handInput.needle=null; $('cam').classList.remove('on'); $('btnCam').textContent='Use camera';
+}
+function mapToScreen(p){ // mirrored, with a comfortable central "reach" box
+  const x=1-p.x, y=p.y;
+  return {x:(x-0.12)/0.76*W, y:(y-0.1)/0.74*H};
+}
+function detect(){
+  if(!camOn||!landmarker||video.readyState<2||video.currentTime===lastVideoTime) return;
+  lastVideoTime=video.currentTime;
+  let res; try{ res=landmarker.detectForVideo(video, performance.now()); }catch(e){ return; }
+  const aspect=(video.videoWidth/video.videoHeight)||4/3, hd=res.handedness||res.handednesses||[];
+  hands=(res.landmarks||[]).map((lm,i)=>{
+    const label=(hd[i]&&hd[i][0]&&hd[i][0].categoryName)||('h'+i);
+    const n=(a,b)=>Math.hypot((lm[a].x-lm[b].x)*aspect, lm[a].y-lm[b].y);
+    const size=n(0,9)||1e-3, ratio=n(4,8)/size, prev=pinchState[label]||false;
+    const pinched=prev?ratio<0.42:ratio<0.27; pinchState[label]=pinched;
+    const ext=[[8,6],[12,10],[16,14],[20,18]].filter(([t,p])=>n(t,0)>n(p,0)*1.12).length;
+    return {label, lm, scr:lm.map(mapToScreen), pinched, open:ext>=3&&!pinched};
+  });
+  // choose the needle hand
+  let nh=hands.find(h=>h.pinched && h.label===handInput.label) || hands.find(h=>h.pinched)
+       || hands.find(h=>h.label===handInput.label) || hands.find(h=>!h.open) || hands[0];
+  if(!nh){ handInput.needle=null; handInput.smooth=null; handInput.hoopHeld=false; return; }
+  handInput.label=nh.label;
+  const raw={x:(nh.scr[4].x+nh.scr[8].x)/2, y:(nh.scr[4].y+nh.scr[8].y)/2};
+  handInput.smooth = handInput.smooth ? {x:lerp(handInput.smooth.x,raw.x,0.5), y:lerp(handInput.smooth.y,raw.y,0.5)} : raw;
+  handInput.needle=handInput.smooth; handInput.pinched=nh.pinched;
+  const ang=Math.atan2(nh.scr[5].y-nh.scr[8].y, nh.scr[5].x-nh.scr[8].x);
+  handInput.angle=Math.atan2(lerp(Math.sin(handInput.angle),Math.sin(ang),0.3), lerp(Math.cos(handInput.angle),Math.cos(ang),0.3));
+  handInput.hoopHeld=hands.some(h=>h!==nh && h.open);
+  nh.isNeedle=true; hands.forEach(h=>{ h.isHoop = h!==nh && h.open; });
+}
+
+function gatherInput(){
+  const handReady = camOn && handInput.needle;
+  if(mouse.down || (!handReady && mouse.active)){
+    return {source:'mouse', needle:{x:mouse.x,y:mouse.y}, pinched:mouse.down, angle:-0.85, hoopHeld:true};
+  }
+  if(handReady) return {source:'hand', needle:handInput.needle, pinched:handInput.pinched, angle:handInput.angle, hoopHeld:handInput.hoopHeld};
+  return {source:camOn?'hand':'mouse', needle:null, pinched:false, angle:-0.85, hoopHeld:!camOn};
+}
+
+// ------------------------------------------------------------------
+//  The stitch cycle: come up → lay → go down → pull
+// ------------------------------------------------------------------
+let beat=0;
+function blendWobble(act,tgt){
+  let dx=(act.x-tgt.x)*KEEP_WOBBLE, dy=(act.y-tgt.y)*KEEP_WOBBLE; const m=Math.hypot(dx,dy);
+  if(m>MAX_WOBBLE){ dx*=MAX_WOBBLE/m; dy*=MAX_WOBBLE/m; }
+  return {x:+dx.toFixed(4), y:+dy.toFixed(4)};
+}
+function update(dt, inp){
+  const p=inp.needle?toCloth(inp.needle):null;
+  if(p && prevP && dt>0){ const v=dist(p,prevP)/dt; speed=Number.isFinite(speed)?speed*0.65+v*0.35:v; } else speed=Infinity;
+  prevP=p;
+  if(inp.pinched && state!=='done') activeMs+=dt*1000;
+  const slot=slots[idx];
+  if(state==='done'||!slot){ beat=-1; sfx.whisper(0); return; }
+  const holding = p && inp.pinched;
+  if(state==='emerge'){
+    beat=0;
+    if(holding && dist(p,slot.a)<HIT){ if(speed<STILL) dwell+=dt; else dwell=Math.max(0,dwell-dt); }
+    else dwell=Math.max(0,dwell-dt*3);
+    if(dwell>=T_UP){ emergeRaw={...p}; state='lay'; dwell=0; sfx.pop(0.85); }
+  } else if(state==='lay'){
+    beat=1;
+    if(holding && dist(p,slot.b)<HIT){ beat=2; if(speed<STILL) dwell+=dt; else dwell=Math.max(0,dwell-dt); }
+    else dwell=Math.max(0,dwell-dt*3);
+    if(dwell>=T_DOWN){ downRaw={...p}; pullFrom={...p}; pullLastD=0; pullT=0; state='pull'; dwell=0; sfx.pop(1.15); }
+  } else if(state==='pull'){
+    beat=3;
+    if(holding){
+      const d=dist(p,pullFrom); if(d>pullLastD){ pullT=clamp(pullT+(d-pullLastD)/PULL,0,1); } pullLastD=d;
+      sfx.whisper(clamp(speed/2.5,0,1));
+    } else { if(p) pullLastD=dist(p,pullFrom); sfx.whisper(0); }
+    if(pullT>=1){ commit(); sfx.whisper(0); }
+  }
+}
+function commit(){
+  const slot=slots[idx];
+  const s={i:idx, oa:blendWobble(emergeRaw,slot.a), ob:blendWobble(downRaw,slot.b), c:threadIdx};
+  stitches.push(s); addStitchToCloth(s); idx++; resetCycle();
+  sfx.tock();
+  if(idx>=slots.length){ state='done'; saveProgress(); setTimeout(showFinish,700); sfx.chime(); }
+  else { state='emerge'; saveProgress(); }
+}
+
+// ------------------------------------------------------------------
+//  Drawing
+// ------------------------------------------------------------------
+let time=0;
+function drawStage(){
+  const g=sctx; g.setTransform(DPR,0,0,DPR,0,0);
+  g.fillStyle=bgGrad; g.fillRect(0,0,W,H);
+  g.save(); g.translate(geom.cx+sway.x, geom.cy+sway.y); g.rotate(sway.rot);
+  if(cloth) drawHoop(g, geom.r, cloth.canvas);
+  g.restore();
+}
+function ringAt(g,p,rad,color,width,from=0,to=TAU){ g.strokeStyle=color; g.lineWidth=width; g.beginPath(); g.arc(p.x,p.y,rad,from,to); g.stroke(); }
+function drawNeedle(g,p,ang,pinched){
+  const len=Math.max(54,geom.r*0.2), dx=Math.cos(ang), dy=Math.sin(ang), eye={x:p.x+dx*len,y:p.y+dy*len};
+  g.save(); g.lineCap='round';
+  g.strokeStyle='rgba(0,0,0,0.4)'; g.lineWidth=3.2; g.beginPath(); g.moveTo(p.x+2,p.y+3); g.lineTo(eye.x+2,eye.y+3); g.stroke();
+  const gr=g.createLinearGradient(p.x,p.y,eye.x,eye.y); gr.addColorStop(0,'#ffffff'); gr.addColorStop(0.5,'#c3c9d0'); gr.addColorStop(1,'#8b929a');
+  g.strokeStyle=gr; g.lineWidth=2.4; g.beginPath(); g.moveTo(p.x,p.y); g.lineTo(eye.x,eye.y); g.stroke();
+  g.save(); g.translate(eye.x-dx*len*0.09, eye.y-dy*len*0.09); g.rotate(ang); g.strokeStyle='#4d535a'; g.lineWidth=1; g.beginPath(); g.ellipse(0,0,len*0.055,1,0,0,TAU); g.stroke(); g.restore();
+  g.fillStyle=pinched?'rgba(255,255,255,0.95)':'rgba(255,255,255,0.45)'; g.beginPath(); g.arc(p.x,p.y,pinched?2.2:1.6,0,TAU); g.fill();
+  g.restore();
+  return {x:eye.x-dx*len*0.09, y:eye.y-dy*len*0.09};
+}
+function curvePts(a,b,sag,n=18){ const pts=[]; for(let i=0;i<=n;i++){ const t=i/n; pts.push({x:lerp(a.x,b.x,t), y:lerp(a.y,b.y,t)+Math.sin(Math.PI*t)*sag}); } return pts; }
+function drawGhostHands(g){
+  for(const h of hands){
+    const s=h.scr; g.save(); g.lineCap='round';
+    g.strokeStyle=h.isNeedle?'rgba(239,230,214,0.32)':'rgba(239,230,214,0.18)'; g.lineWidth=1.4;
+    for(const [a,b] of BONES){ g.beginPath(); g.moveTo(s[a].x,s[a].y); g.lineTo(s[b].x,s[b].y); g.stroke(); }
+    g.fillStyle='rgba(239,230,214,0.35)'; for(const k of [4,8,12,16,20]){ g.beginPath(); g.arc(s[k].x,s[k].y,2.6,0,TAU); g.fill(); }
+    if(h.isHoop){ const c={x:(s[0].x+s[9].x)/2,y:(s[0].y+s[9].y)/2}; const gr=g.createRadialGradient(c.x,c.y,0,c.x,c.y,46); gr.addColorStop(0,'rgba(217,164,65,0.22)'); gr.addColorStop(1,'rgba(217,164,65,0)'); g.fillStyle=gr; g.beginPath(); g.arc(c.x,c.y,46,0,TAU); g.fill(); }
+    g.restore();
+  }
+}
+let hoverEl=null, hoverT=0;
+function drawFx(inp){
+  const g=fctx; g.setTransform(DPR,0,0,DPR,0,0); g.clearRect(0,0,W,H);
+  if(camOn && hands.length) drawGhostHands(g);
+  const slot=slots[idx], hex=THREADS[threadIdx].hex, w=geom.r*THREAD_W;
+  if(slot && state!=='done'){
+    const A=toScreen(slot.a), B=toScreen(slot.b);
+    if(state!=='pull'){
+      g.save(); g.setLineDash([3,5]); g.lineCap='round'; g.strokeStyle=rgba('#efe6d6',0.5); g.lineWidth=1.3;
+      strokePath(g, slot.pts.map(toScreen)); g.restore();
+    }
+    const pulse=(Math.sin(time*4)+1)/2;
+    if(state==='emerge'){
+      const gr=g.createRadialGradient(A.x,A.y,0,A.x,A.y,18+pulse*6); gr.addColorStop(0,rgba(hex,0.55)); gr.addColorStop(1,rgba(hex,0)); g.fillStyle=gr; g.beginPath(); g.arc(A.x,A.y,24,0,TAU); g.fill();
+      g.fillStyle=hex; g.beginPath(); g.arc(A.x,A.y,4.5+pulse*1.2,0,TAU); g.fill();
+      ringAt(g,B,6,rgba('#efe6d6',0.35),1.2);
+      if(dwell>0) ringAt(g,A,14,'#efe6d6',2.5,-Math.PI/2,-Math.PI/2+TAU*dwell/T_UP);
+    } else if(state==='lay'){
+      ringAt(g,B,6.5+pulse*1.5,hex,1.8);
+      if(dwell>0) ringAt(g,B,14,'#efe6d6',2.5,-Math.PI/2,-Math.PI/2+TAU*dwell/T_DOWN);
+    }
+  }
+  // live thread
+  let eye=null;
+  if(inp.needle){
+    if(state==='lay' && emergeRaw){
+      eye=drawNeedleLater(inp);
+      const E=toScreen(emergeRaw);
+      drawThread(g, curvePts(E, eye, Math.min(26, dist(E,eye)*0.12)), hex, w, 0.97, false);
+      g.fillStyle='rgba(6,10,22,0.6)'; g.beginPath(); g.arc(E.x,E.y,w*0.62,0,TAU); g.fill();
+    } else if(state==='pull' && slot){
+      eye=drawNeedleLater(inp);
+      const oa=blendWobble(emergeRaw,slot.a), ob=blendWobble(downRaw,slot.b);
+      const ptsU=stitchPts(slot,oa,ob,1,(1-pullT)*0.055);
+      drawThread(g, ptsU.map(toScreen), hex, w, 1);
+      const D=toScreen(downRaw);
+      g.save(); g.setLineDash([2,4]); g.strokeStyle=rgba(hex,0.45); g.lineWidth=1.4; g.beginPath(); g.moveTo(D.x,D.y); g.lineTo(eye.x,eye.y); g.stroke(); g.restore();
+      // tension meter around the needle
+      ringAt(g, inp.needle, 20, rgba('#efe6d6',0.18), 2);
+      ringAt(g, inp.needle, 20, hex, 2.5, -Math.PI/2, -Math.PI/2+TAU*pullT);
+    } else {
+      eye=drawNeedleLater(inp);
+      drawThread(g, curvePts(eye,{x:eye.x+10,y:eye.y+34},10,10), hex, w*0.85, 0.9, false);
+    }
+    drawNeedle(g, inp.needle, inp.angle, inp.pinched);
+    // hand hover-to-press on buttons
+    if(inp.source==='hand' && hoverEl && hoverT>0) ringAt(g, inp.needle, 26, '#efe6d6', 2.5, -Math.PI/2, -Math.PI/2+TAU*hoverT/0.9);
+  }
+}
+function drawNeedleLater(inp){ // compute eye position without drawing (needle drawn last, on top)
+  const len=Math.max(54,geom.r*0.2), dx=Math.cos(inp.angle), dy=Math.sin(inp.angle);
+  return {x:inp.needle.x+dx*len*0.91, y:inp.needle.y+dy*len*0.91};
+}
+function drawCamFx(){
+  if(!camOn) return; const r=camfx.getBoundingClientRect(); const w=Math.round(r.width*DPR), h=Math.round(r.height*DPR);
+  if(camfx.width!==w||camfx.height!==h){ camfx.width=w; camfx.height=h; }
+  cctx.clearRect(0,0,w,h);
+  for(const hd of hands){ cctx.strokeStyle=hd.isNeedle?'#efe6d6':(hd.isHoop?'#d9a441':'rgba(239,230,214,.5)'); cctx.lineWidth=1.5*DPR;
+    for(const [a,b] of BONES){ cctx.beginPath(); cctx.moveTo((1-hd.lm[a].x)*w,hd.lm[a].y*h); cctx.lineTo((1-hd.lm[b].x)*w,hd.lm[b].y*h); cctx.stroke(); } }
+}
+
+// ------------------------------------------------------------------
+//  UI
+// ------------------------------------------------------------------
+const beatEls=[...document.querySelectorAll('#beats li')];
+let lastUi=0, lastHint='';
+function hintFor(inp){
+  const hand=inp.source==='hand';
+  if(state==='done') return ['Finished. Save your hoop or choose another pattern.',''];
+  if(!inp.needle) return camOn ? ['Raise your hand so the camera can see it.','Keep your hand about an arm’s length from the screen.'] : ['Move onto the hoop to pick up the needle.',''];
+  const slot=slots[idx], p=toCloth(inp.needle);
+  const hoopTip = hand && !inp.hoopHeld ? 'Open your other hand flat to steady the hoop.' : '';
+  if(!inp.pinched && state!=='pull') return [hand?'Pinch thumb and index finger to hold the needle.':'Press and hold to hold the needle.', hoopTip];
+  if(state==='emerge') return dist(p,slot.a)<HIT ? ['Hold still. The needle is coming up…', hoopTip] : ['Bring the needle to the glowing dot.', hoopTip];
+  if(state==='lay') return dist(p,slot.b)<HIT ? ['Hold still to push the needle down…', hoopTip] : ['Draw the thread along the line to the ring.', hoopTip];
+  if(state==='pull') return inp.pinched ? ['Pull the thread away until it lies snug.', `${Math.round(pullT*100)}% snug`] : [hand?'Pinch again and keep pulling.':'Press again and keep pulling.', `${Math.round(pullT*100)}% snug`];
+  return ['',''];
+}
+function updateUI(inp, now){
+  beatEls.forEach((el,i)=>el.classList.toggle('on', i===beat));
+  if(now-lastUi>150){
+    lastUi=now;
+    $('stStitches').textContent=stitches.length;
+    $('stMinutes').textContent=Math.floor(activeMs/60000);
+    $('stPct').textContent=Math.floor(100*stitches.length/slots.length)+'%';
+    const [h1,h2]=hintFor(inp), key=h1+'|'+h2;
+    if(key!==lastHint){ lastHint=key; $('hint').firstChild.nodeValue=h1||' '; $('hint2').textContent=h2; }
+    if(camOn){ $('chipNeedle').classList.toggle('ok', !!handInput.needle && handInput.pinched); $('chipHoop').classList.toggle('ok', !!handInput.hoopHeld);
+      $('chipNeedle').textContent = handInput.needle ? (handInput.pinched?'Needle held':'Needle hand') : 'No hand seen';
+      $('chipHoop').textContent = handInput.hoopHeld ? 'Hoop steady' : 'Hoop drifting'; }
+  }
+}
+function handHover(inp, dt){
+  if(inp.source!=='hand'||!inp.needle||inp.pinched){ hoverEl=null; hoverT=0; return; }
+  const el=document.elementFromPoint(inp.needle.x, inp.needle.y); const target=el&&el.closest('[data-dwell]');
+  if(target!==hoverEl){ hoverEl=target; hoverT=0; return; }
+  if(hoverEl){ hoverT+=dt; if(hoverT>=0.9){ hoverEl.click(); hoverT=-0.8; } }
+}
+
+let toastTimer=null;
+function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),2800); }
+
+function thumb(p){
+  const s=120, c=document.createElement('canvas'); c.width=c.height=s; const g=c.getContext('2d'); const r=s/2;
+  g.translate(r,r); g.fillStyle='#24345a'; g.beginPath(); g.arc(0,0,r,0,TAU); g.fill();
+  g.strokeStyle='#efe6d6'; g.lineWidth=2.2; g.lineCap='round'; g.setLineDash([5,3.5]);
+  for(const run of p.runs){ g.beginPath(); run.forEach((q,i)=>i?g.lineTo(q.x*r*1.08,q.y*r*1.08):g.moveTo(q.x*r*1.08,q.y*r*1.08)); g.stroke(); }
+  return c.toDataURL();
+}
+function buildPickers(){
+  const pc=$('patterns');
+  PATTERNS.forEach(p=>{ const b=document.createElement('button'); b.className='pat'; b.dataset.id=p.id; b.dataset.dwell=''; b.setAttribute('aria-pressed','false');
+    b.innerHTML=`<img alt="" src="${thumb(p)}"><div><b>${p.name}</b><span>${p.en} · ${p.level}</span></div>`;
+    b.title=`${p.name} (${p.en})`;
+    b.onclick=()=>{ if(p!==pattern) selectPattern(p); }; pc.appendChild(b); });
+  const tc=$('threads');
+  THREADS.forEach((t,i)=>{ const b=document.createElement('button'); b.className='thr'; b.dataset.dwell=''; b.style.setProperty('--c',t.hex); b.title=`${t.name} (${t.en})`;
+    b.setAttribute('aria-label',`${t.name} thread, ${t.en}`); b.innerHTML='<i></i>'; b.onclick=()=>selectThread(i); tc.appendChild(b); });
+}
+function selectThread(i){
+  threadIdx=i; document.querySelectorAll('.thr').forEach((b,k)=>b.setAttribute('aria-pressed',k===i));
+  const t=THREADS[i]; $('threadName').innerHTML=`<b>${t.name}</b> · ${t.en}`;
+  try{ localStorage.setItem('needle-drop:thread', String(i)); }catch(e){}
+}
+
+// ---------- save image
+function saveImage(){
+  const S=1600, Hh=1880, c=document.createElement('canvas'); c.width=S; c.height=Hh; const g=c.getContext('2d');
+  const bg=g.createRadialGradient(S/2,820,200,S/2,820,1300); bg.addColorStop(0,'#2a2019'); bg.addColorStop(1,'#100c09'); g.fillStyle=bg; g.fillRect(0,0,S,Hh);
+  const r=640, cl=renderCloth(r,1);
+  g.save(); g.translate(S/2,830); drawHoop(g,r,cl.canvas); g.restore();
+  g.fillStyle='#efe6d6'; g.textAlign='center';
+  g.font='italic 500 76px "Cormorant Garamond", Georgia, serif'; g.fillText('Needle Drop', S/2, 1660);
+  g.fillStyle='#b4a68f'; g.font='400 30px "DM Sans", system-ui, sans-serif';
+  const mins=Math.max(1,Math.round(activeMs/60000));
+  g.fillText(`${pattern.name} · ${stitches.length} stitches · ${mins} minute${mins===1?'':'s'} by hand`, S/2, 1730);
+  c.toBlob(b=>{ if(!b) return; const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=`needle-drop-${pattern.id}-${stitches.length}-stitches.png`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),4000); toast('Saved your hoop as an image.'); }, 'image/png');
+}
+function showFinish(){
+  const mins=Math.max(1,Math.round(activeMs/60000));
+  $('finishKicker').textContent=`${pattern.name} · ${pattern.en}`;
+  $('finishStats').textContent=`${stitches.length} stitches · ${mins} minute${mins===1?'':'s'} of handwork`;
+  $('finish').hidden=false;
+}
+
+// ---------- buttons
+let clearArmed=0;
+$('btnCam').onclick=()=>{ sfx.init(); camOn?stopCamera():startCamera(); };
+$('btnUndo').onclick=()=>{ if(!stitches.length && state==='emerge') return; if(state!=='emerge'&&state!=='done'){ resetCycle(); state='emerge'; toast('Took the needle back out.'); return; }
+  const s=stitches.pop(); idx=s.i; resetCycle(); state='emerge'; buildCloth(); saveProgress(); toast('Unpicked one stitch.'); };
+$('btnSave').onclick=saveImage;
+$('btnSound').onclick=()=>{ sfx.init(); sfx.on=!sfx.on; $('btnSound').textContent=sfx.on?'Sound on':'Sound off'; $('btnSound').setAttribute('aria-pressed',sfx.on); if(!sfx.on) sfx.whisper(0); };
+$('btnClear').onclick=()=>{ const b=$('btnClear'); const now=performance.now();
+  if(now-clearArmed<3000){ stitches=[]; idx=0; activeMs=0; resetCycle(); state='emerge'; buildCloth(); saveProgress(); b.textContent='Clear'; b.classList.remove('warn'); clearArmed=0; toast('Fresh cloth.'); }
+  else { clearArmed=now; b.textContent='Tap again to clear'; b.classList.add('warn'); setTimeout(()=>{ if(performance.now()-clearArmed>=2900){ b.textContent='Clear'; b.classList.remove('warn'); } },3000); } };
+$('startCam').onclick=()=>{ sfx.init(); $('intro').hidden=true; started=true; startCamera(); };
+$('startMouse').onclick=()=>{ sfx.init(); $('intro').hidden=true; started=true; toast('Press and hold to hold the needle.'); };
+$('finishSave').onclick=saveImage;
+$('finishClose').onclick=()=>{ $('finish').hidden=true; };
+$('finishNext').onclick=()=>{ $('finish').hidden=true; const i=PATTERNS.indexOf(pattern); selectPattern(PATTERNS[(i+1)%PATTERNS.length]); };
+
+// ------------------------------------------------------------------
+//  Loop
+// ------------------------------------------------------------------
+let last=performance.now();
+function frame(now){
+  const dt=Math.min(0.05,(now-last)/1000); last=now; time+=dt;
+  detect();
+  const inp=gatherInput();
+  // the hoop drifts gently unless the other hand steadies it
+  const held=inp.hoopHeld||inp.source==='mouse';
+  const tx=held?0:Math.sin(time*0.9)*geom.r*0.02, ty=held?0:Math.cos(time*0.7)*geom.r*0.016, tr=held?0:Math.sin(time*0.5)*0.014;
+  const k=1-Math.pow(0.04,dt); sway.x=lerp(sway.x,tx,k); sway.y=lerp(sway.y,ty,k); sway.rot=lerp(sway.rot,tr,k);
+  if(started) update(dt, inp);
+  drawStage(); drawFx(inp); drawCamFx(); updateUI(inp, now); handHover(inp, dt);
+  requestAnimationFrame(frame);
+}
+
+buildPickers();
+let savedThread=0; try{ savedThread=+(localStorage.getItem('needle-drop:thread')||0)||0; }catch(e){}
+selectThread(clamp(savedThread,0,THREADS.length-1));
+addEventListener('resize', resize); resize();
+selectPattern(PATTERNS[0], {quiet:true});
+requestAnimationFrame(frame);
+
+// test hook
+window.__needleDrop={ get state(){return state;}, get idx(){return idx;}, get stitches(){return stitches.length;}, get total(){return slots.length;},
+  slotScreen(){ const s=slots[idx]; return s?{a:toScreen(s.a),b:toScreen(s.b),r:geom.r}:null; }, counts:()=>PATTERNS.map(p=>p.slots.length) };
+</script>
+</body>
+</html>
