@@ -2,14 +2,11 @@
 
 Sashiko embroidery with your own two hands, one stitch at a time.
 
-Needle Drop brings an old hand skill into the browser. It only responds to deliberate effort, not waving. Every stitch takes the four moves of a real running stitch:
+Needle Drop brings an old hand skill into the browser. It responds only to the deliberate rhythm of sewing, not to waving. No aiming is needed: the needle stays on the pattern line, and your hand does the work.
 
-1. **Come up**: pinch thumb and index finger to hold the needle, and rest it on the glowing dot.
-2. **Lay the thread**: draw the thread along the pattern line to the ring.
-3. **Go down**: hold still to push the needle through the cloth.
-4. **Pull through**: pull away until the stitch lies snug.
-
-Your other open hand steadies the hoop. Without it, the hoop slowly drifts.
+1. **Pinch**: touch your thumb and index finger together to pick up the needle.
+2. **Pull**: draw your hand away, in any direction. The thread follows the pattern.
+3. **Release**: open your fingers to set the stitch, then repeat.
 
 ## Patterns
 
